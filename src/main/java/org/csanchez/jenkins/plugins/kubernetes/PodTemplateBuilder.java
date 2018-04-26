@@ -245,11 +245,12 @@ public class PodTemplateBuilder {
                     .add(new VolumeBuilder().withName(WORKSPACE_VOLUME_NAME).withNewEmptyDir().endEmptyDir().build());
         }
         // default workspace volume mount. If something is already mounted in the same path ignore it
-        pod.getSpec().getContainers().stream()
-                .filter(c -> c.getVolumeMounts().stream()
-                        .noneMatch(vm -> vm.getMountPath().equals(
-                                c.getWorkingDir() != null ? c.getWorkingDir() : ContainerTemplate.DEFAULT_WORKING_DIR)))
-                .forEach(c -> c.getVolumeMounts().add(getDefaultVolumeMount(c.getWorkingDir())));
+        //TODO EXCLUDE volume mount for workdir
+//        pod.getSpec().getContainers().stream()
+//                .filter(c -> c.getVolumeMounts().stream()
+//                        .noneMatch(vm -> vm.getMountPath().equals(
+//                                c.getWorkingDir() != null ? c.getWorkingDir() : ContainerTemplate.DEFAULT_WORKING_DIR)))
+//                .forEach(c -> c.getVolumeMounts().add(getDefaultVolumeMount(c.getWorkingDir())));
 
         LOGGER.log(Level.FINE, "Pod built: {0}", pod);
         return pod;
@@ -354,20 +355,22 @@ public class PodTemplateBuilder {
                 .build();
     }
 
-    private VolumeMount getDefaultVolumeMount(@CheckForNull String workingDir) {
-        String wd = workingDir;
-        if (wd == null) {
-            wd = ContainerTemplate.DEFAULT_WORKING_DIR;
-            LOGGER.log(Level.FINE, "Container workingDir is null, defaulting to {0}", wd);
-        }
-        return new VolumeMount(wd, WORKSPACE_VOLUME_NAME, false, null);
-    }
+    //TODO EXCLUDE volume mount for workdir
+//    private VolumeMount getDefaultVolumeMount(@CheckForNull String workingDir) {
+//        String wd = workingDir;
+//        if (wd == null) {
+//            wd = ContainerTemplate.DEFAULT_WORKING_DIR;
+//            LOGGER.log(Level.FINE, "Container workingDir is null, defaulting to {0}", wd);
+//        }
+//        return new VolumeMount(wd, WORKSPACE_VOLUME_NAME, false, null);
+//    }
 
     private List<VolumeMount> getContainerVolumeMounts(Collection<VolumeMount> volumeMounts, String workingDir) {
         List<VolumeMount> containerMounts = new ArrayList<>(volumeMounts);
-        if (!Strings.isNullOrEmpty(workingDir) && !PodVolume.volumeMountExists(workingDir, volumeMounts)) {
-            containerMounts.add(getDefaultVolumeMount(workingDir));
-        }
+        //TODO EXCLUDE volume mount for workdir
+//        if (!Strings.isNullOrEmpty(workingDir) && !PodVolume.volumeMountExists(workingDir, volumeMounts)) {
+//            containerMounts.add(getDefaultVolumeMount(workingDir));
+//        }
         return containerMounts;
     }
 
