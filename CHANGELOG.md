@@ -3,9 +3,175 @@ CHANGELOG
 
 Known issues
 ------------
-* Nested pod templates and inheritance issues [JENKINS-50196](https://issues.jenkins-ci.org/browse/JENKINS-50196) [JENKINS-49700](https://issues.jenkins-ci.org/browse/JENKINS-49700) [JENKINS-49366](https://issues.jenkins-ci.org/browse/JENKINS-49366)
+* Nested pod templates and inheritance issues [JENKINS-49700](https://issues.jenkins-ci.org/browse/JENKINS-49700)
 
 See the full list of issues at [JIRA](https://issues.jenkins-ci.org/issues/?filter=15575)
+
+1.13.5
+------
+* Populate jnlp tunnel in the jnlp endpoint to launch agent whether Jenkins is behind load balancer or not [#389](https://github.com/jenkinsci/kubernetes-plugin/pull/389)
+* Combine parent pod template ports with children [#340](https://github.com/jenkinsci/kubernetes-plugin/pull/340) [JENKINS-50932](https://issues.jenkins-ci.org/browse/JENKINS-50932)
+
+1.13.4
+------
+* Allow custom workspace in declarative pipeline [#380](https://github.com/jenkinsci/kubernetes-plugin/pull/380) [JENKINS-53817](https://issues.jenkins-ci.org/browse/JENKINS-53817)
+
+1.13.3
+------
+* Upgrade kubernetes-client to 4.1.0 [#391](https://github.com/jenkinsci/kubernetes-plugin/pull/391) [JENKINS-52593](https://issues.jenkins-ci.org/browse/JENKINS-52593)
+
+1.13.2
+------
+* Pod name is detected as `localhost` in Bluemix IKS [#388](https://github.com/jenkinsci/kubernetes-plugin/pull/388) [JENKINS-53297](https://issues.jenkins-ci.org/browse/JENKINS-53297)
+
+1.13.1
+------
+* Allow adding jenkins job metadata to the pods using the KubernetesComputer extenion point [#383](https://github.com/jenkinsci/kubernetes-plugin/pull/383)
+
+1.13.0
+------
+* Display Pod log for Kubernetes agents in the node view [#367](https://github.com/jenkinsci/kubernetes-plugin/pull/367)
+
+1.12.9
+------
+* Declarative pipeline: stdin/stdout/stderr of a remote process are not redirected. Do not wrap the default `jnlp` container calls in `container` steps [#377](https://github.com/jenkinsci/kubernetes-plugin/pull/377) [JENKINS-53422](https://issues.jenkins-ci.org/browse/JENKINS-53422)
+
+1.12.8
+------
+* Handle null retention policy resulting from direct xml pod template injection (seen during agent termination) [#381](https://github.com/jenkinsci/kubernetes-plugin/pull/381)
+
+1.12.7
+------
+* Fix nested Pod Templates support [#382](https://github.com/jenkinsci/kubernetes-plugin/pull/382) [JENKINS-50196](https://issues.jenkins-ci.org/browse/JENKINS-50196)
+* Fix pod spec display in build logs [#384](https://github.com/jenkinsci/kubernetes-plugin/pull/384)
+
+1.12.6
+------
+
+* Container and instance cap are not honored when requesting lots of slaves [#374](https://github.com/jenkinsci/kubernetes-plugin/pull/374) [JENKINS-53313](https://issues.jenkins-ci.org/browse/JENKINS-53313)
+
+1.12.5
+------
+
+* Check for nulls in older kubernetes versions, fixes some NPEs in Kubernetes 1.5 [#378](https://github.com/jenkinsci/kubernetes-plugin/pull/378) [JENKINS-53370](https://issues.jenkins-ci.org/browse/JENKINS-53370)
+
+1.12.4
+------
+
+* Add volumes from pod template to JNLP container [#371](https://github.com/jenkinsci/kubernetes-plugin/pull/371) [JENKINS-50879](https://issues.jenkins-ci.org/browse/JENKINS-50879)
+* Chinese localization [#368](https://github.com/jenkinsci/kubernetes-plugin/pull/368)[#370](https://github.com/jenkinsci/kubernetes-plugin/pull/370)
+
+1.12.3
+------
+
+* Upgrade Jenkins to 2.121.2 [#365](https://github.com/jenkinsci/kubernetes-plugin/pull/365)
+
+1.12.2
+------
+
+* Using declarative, environment variables like COMMIT_ID, GIT_BRANCH are not populated. Use CheckoutScript to populate environment [#364](https://github.com/jenkinsci/kubernetes-plugin/pull/364) [JENKINS-52623](https://issues.jenkins-ci.org/browse/JENKINS-52623)
+
+1.12.1
+------
+
+* Upgrade kubernetes-client to 4.0.0. Drops support for OpenShift <1.6 [#358](https://github.com/jenkinsci/kubernetes-plugin/pull/358) [JENKINS-53363](https://issues.jenkins-ci.org/browse/JENKINS-53363)
+* Fix defaults for Pod Retention on Pod templates [#363](https://github.com/jenkinsci/kubernetes-plugin/pull/363) [JENKINS-48149](https://issues.jenkins-ci.org/browse/JENKINS-48149)
+
+1.12.0
+------
+
+* Add optional usage restriction for a Kubernetes cloud using folder properties [#282](https://github.com/jenkinsci/kubernetes-plugin/pull/282)
+
+1.11.0
+------
+
+* Add Pod Retention policies to keep pods around on failure [#354](https://github.com/jenkinsci/kubernetes-plugin/pull/354) [JENKINS-48149](https://issues.jenkins-ci.org/browse/JENKINS-48149)
+
+1.10.2
+------
+
+* Global configuration `testConnection` using GET allows stealing credentials + CSRF [SECURITY-1016](https://issues.jenkins-ci.org/browse/SECURITY-1016)
+
+1.10.1
+-------
+
+* Tool Location overwrites are not preserved [#318](https://github.com/jenkinsci/kubernetes-plugin/pull/318) [JENKINS-44285](https://issues.jenkins-ci.org/browse/JENKINS-44285)
+
+1.10.0
+-------
+
+* Add `yamlFile` option for Declarative agent to read yaml definition from a different file [#355](https://github.com/jenkinsci/kubernetes-plugin/pull/355) [JENKINS-52259](https://issues.jenkins-ci.org/browse/JENKINS-52259)
+
+1.9.3
+-----
+
+* Avoid streaming to 2 similar OutputStreams [#356](https://github.com/jenkinsci/kubernetes-plugin/pull/356)
+
+1.9.2
+-----
+
+* Combine all resources declared in requests and limits not just CPU and memory [#350](https://github.com/jenkinsci/kubernetes-plugin/pull/350)
+
+1.9.1
+-----
+
+* Jenkins master in windows changes the file separator of `mountPath` incorrectly [#308](https://github.com/jenkinsci/kubernetes-plugin/pull/308) [JENKINS-47178](https://issues.jenkins-ci.org/browse/JENKINS-47178)
+
+1.9.0
+-----
+
+* Update parent and Jenkins versions [#349](https://github.com/jenkinsci/kubernetes-plugin/pull/349)
+
+1.8.4
+-----
+
+* Fix mountPath error provisioning `mountPath: Required value` [#346](https://github.com/jenkinsci/kubernetes-plugin/pull/346) [JENKINS-50525](https://issues.jenkins-ci.org/browse/JENKINS-50525)
+
+1.8.3
+-----
+
+* Preserve unsupported directives in `PodTemplate` yaml, add explicit support for envFrom
+ [#348](https://github.com/jenkinsci/kubernetes-plugin/pull/348)
+
+1.8.2
+-----
+
+* Do not emit empty strings for resource requests/limits
+ [#342](https://github.com/jenkinsci/kubernetes-plugin/pull/342)
+
+1.8.1
+-----
+* Get the exit code the correct way. Solves problems with many pipeline steps that rely on tool outputs [#300](https://github.com/jenkinsci/kubernetes-plugin/pull/300) [JENKINS-50392](https://issues.jenkins-ci.org/browse/JENKINS-50392)
+
+1.8.0
+-----
+* Validate label and container names with regex [#332](https://github.com/jenkinsci/kubernetes-plugin/pull/332) [#343](https://github.com/jenkinsci/kubernetes-plugin/pull/343) [JENKINS-51248](https://issues.jenkins-ci.org/browse/JENKINS-51248)
+
+1.7.1
+-----
+* Do not print credentials in build output or logs. Only affects certain pipeline steps like `withDockerRegistry`. `sh` step is not affected [SECURITY-883](https://issues.jenkins-ci.org/browse/SECURITY-883)
+
+1.7.0
+-----
+* Add option to apply caps only on alive pods [#252](https://github.com/jenkinsci/kubernetes-plugin/pull/252)
+* Add idleMinutes to pod template in declarative pipeline [#336](https://github.com/jenkinsci/kubernetes-plugin/pull/336) [JENKINS-51569](https://issues.jenkins-ci.org/browse/JENKINS-51569)
+
+1.6.4
+-----
+* Use Jackson and Apache HttpComponents Client libraries from API plugins [#333](https://github.com/jenkinsci/kubernetes-plugin/pull/333) [JENKINS-51582](https://issues.jenkins-ci.org/browse/JENKINS-51582)
+
+1.6.3
+-----
+* Merge labels from yaml [#326](https://github.com/jenkinsci/kubernetes-plugin/pull/326) [JENKINS-51137](https://issues.jenkins-ci.org/browse/JENKINS-51137)
+* Instance cap reached with preexisting pods due to lack of labels [#325](https://github.com/jenkinsci/kubernetes-plugin/pull/325) [JENKINS-50268](https://issues.jenkins-ci.org/browse/JENKINS-50268)
+
+1.6.2
+-----
+* Transfer any master proxy related envs that the remoting jar uses to the pod templates with `addMasterProxyEnvVars` option [#321](https://github.com/jenkinsci/kubernetes-plugin/pull/321)
+
+1.6.1
+-----
+* Some fields are not inherited from parent template (InheritFrom, InstanceCap, SlaveConnectTimeout, IdleMinutes, ActiveDeadlineSeconds, ServiceAccount, CustomWorkspaceVolumeEnabled) [#319](https://github.com/jenkinsci/kubernetes-plugin/pull/319)
 
 1.6.0
 -----

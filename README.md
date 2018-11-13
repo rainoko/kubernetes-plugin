@@ -14,7 +14,8 @@ For that some environment variables are automatically injected:
 
 * `JENKINS_URL`: Jenkins web interface url
 * `JENKINS_SECRET`: the secret key for authentication
-* `JENKINS_NAME`: the name of the Jenkins agent
+* `JENKINS_AGENT_NAME`: the name of the Jenkins agent
+* `JENKINS_NAME`: the name of the Jenkins agent (Deprecated. Only here for backwards compatibility)
 
 Tested with [`jenkins/jnlp-slave`](https://hub.docker.com/r/jenkins/jnlp-slave),
 see the [Docker image source code](https://github.com/jenkinsci/docker-jnlp-slave).
@@ -27,6 +28,13 @@ _Name_, _Kubernetes URL_, _Kubernetes server certificate key_, ...
 
 If _Kubernetes URL_ is not set, the connection options will be autoconfigured from service account or kube config file.
 
+### Restricting what jobs can use your configured cloud
+
+Clouds can be configured to only allow certain jobs to use them.
+
+To enable this, in your cloud's advanced configuration check the
+`Restrict pipeline support to authorized folders` box. For a job to then
+use this cloud configuration you will need to add it in the jobs folder's configuration.
 
 # Pipeline support
 
@@ -65,6 +73,18 @@ The default jnlp agent image used can be customized by adding it to the template
 
 ```groovy
 containerTemplate(name: 'jnlp', image: 'jenkins/jnlp-slave:3.10-1-alpine', args: '${computer.jnlpmac} ${computer.name}'),
+```
+
+or with the yaml syntax
+
+```
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: jnlp
+    image: 'jenkins/jnlp-slave:3.10-1-alpine'
+    args: ['\$(JENKINS_SECRET)', '\$(JENKINS_NAME)']
 ```
 
 ### Container Group Support
@@ -130,7 +150,8 @@ Either way it provides access to the following fields:
 * **annotations** Annotations to apply to the pod.
 * **inheritFrom** List of one or more pod templates to inherit from *(more details below)*.
 * **slaveConnectTimeout** Timeout in seconds for an agent to be online.
-* **activeDeadlineSeconds** Pod is deleted after this deadline is passed.
+* **podRetention** Controls the behavior of keeping slave pods. Can be 'never()', 'onFailure()', 'always()', or 'default()' - if empty will default to deleting the pod after `activeDeadlineSeconds` has passed.
+* **activeDeadlineSeconds** If `podRetention` is set to 'never()' or 'onFailure()', pod is deleted after this deadline is passed.
 * **idleMinutes** Allows the Pod to remain active for reuse until the configured number of minutes has passed since the last step was executed on it.
 
 The `containerTemplate` is a template of container that will be added to the pod. Again, its configurable via the user interface or via pipeline and allows you to set the following fields:
@@ -176,7 +197,7 @@ spec:
 }
 ```
 
-You can use [`readFile` step](https://jenkins.io/doc/pipeline/steps/workflow-basic-steps/#code-readfile-code-read-file-from-workspace) to load the yaml from a file.  It is also accessible from this plugin's configuration panel in the Jenkins console.
+You can use [`readFile`](https://jenkins.io/doc/pipeline/steps/workflow-basic-steps/#code-readfile-code-read-file-from-workspace) or [`readTrusted`](https://jenkins.io/doc/pipeline/steps/coding-webhook/#readtrusted-read-trusted-file-from-scm) steps to load the yaml from a file.  It is also accessible from this plugin's configuration panel in the Jenkins console.
 
 #### Liveness Probe Usage
 ```groovy
@@ -353,7 +374,7 @@ pipeline {
   agent {
     kubernetes {
       label 'mypod'
-      defaultContainer: 'jnlp'
+      defaultContainer 'jnlp'
       yaml """
 apiVersion: v1
 kind: Pod
@@ -390,6 +411,23 @@ spec:
 }
 ```
 
+or using `yamlFile` to keep the pod template in a separate `KubernetesPod.yaml` file
+
+```
+pipeline {
+  agent {
+    kubernetes {
+      label 'mypod'
+      defaultContainer 'jnlp'
+      yamlFile 'KubernetesPod.yaml'
+    }
+  }
+  stages {
+      ...
+  }
+}
+```
+
 Note that it was previously possible to define `containerTemplate` but that has been deprecated in favor of the yaml format.
 
 ```groovy
@@ -407,6 +445,30 @@ pipeline {
     }
   }
   stages { ... }
+}
+```
+
+Run the Pipeline or individual stage within a custom workspace - not required unless explicitly stated.
+
+```
+pipeline {
+  agent {
+    kubernetes {
+      label 'mypod'
+      customWorkspace 'some/other/path'
+      defaultContainer 'maven'
+      yamlFile 'KubernetesPod.yaml'
+    }
+  }
+
+  stages {
+    stage('Run maven') {
+      steps {
+        sh 'mvn -version'
+        sh "echo Workspace dir is ${pwd()}"
+      }
+    }
+  }
 }
 ```
 
@@ -517,7 +579,7 @@ at `DEBUG` level.
 
 ## Deleting pods in bad state
 
-    kubectl get -a pods -o name --selector=jenkins=agent | xargs -I {} kubectl delete {}
+    kubectl get pods -o name --selector=jenkins=slave --all-namespaces  | xargs -I {} kubectl delete {}
 
 # Building and Testing
 
@@ -702,4 +764,4 @@ Note: the JVM will use the memory `requests` as the heap limit (-Xmx)
 # Related Projects
 
 * [Kubernetes Pipeline plugin](https://github.com/jenkinsci/kubernetes-pipeline-plugin): pipeline extension to provide native support for using Kubernetes pods, secrets and volumes to perform builds
-* [Kubernetes Secrets Credentials plugin](https://github.com/hoshsadiq/jenkins-kubernetes-secrets-credentials): Credentials provider that reads Kubernetes secrets
+* [kubernetes-credentials](https://github.com/jenkinsci/kubernetes-credentials-plugin): Credentials provider that reads Kubernetes secrets

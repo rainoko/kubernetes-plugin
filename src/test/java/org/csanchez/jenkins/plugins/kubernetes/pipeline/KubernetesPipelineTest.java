@@ -25,9 +25,11 @@
 package org.csanchez.jenkins.plugins.kubernetes.pipeline;
 
 import static org.csanchez.jenkins.plugins.kubernetes.KubernetesTestUtil.*;
+import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -35,13 +37,17 @@ import org.csanchez.jenkins.plugins.kubernetes.PodTemplate;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
+import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.junit.rules.TestName;
 import org.jvnet.hudson.test.JenkinsRuleNonLocalhost;
 
 import hudson.model.Result;
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
+import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 
 /**
@@ -54,39 +60,96 @@ public class KubernetesPipelineTest extends AbstractKubernetesPipelineTest {
     @Rule
     public TemporaryFolder tmp = new TemporaryFolder();
 
+    @Rule
+    public TestName name = new TestName();
+
     @Test
     public void runInPod() throws Exception {
-        deletePods(cloud.connect(), getLabels(this), false);
+        deletePods(cloud.connect(), getLabels(cloud, this), false);
 
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition(loadPipelineScript("runInPod.groovy"), true));
         WorkflowRun b = p.scheduleBuild2(0).waitForStart();
         assertNotNull(b);
         List<PodTemplate> templates = cloud.getAllTemplates();
-        while (hasPodTemplateWithLabel("mypod",templates)) {
-            LOGGER.log(Level.INFO, "Waiting for template to be created");
+
+        PodTemplate template = null;
+        while ((template = podTemplateWithLabel("mypod", templates)) == null) {
+            LOGGER.log(Level.INFO, "Waiting for mypod template to be created");
             templates = cloud.getAllTemplates();
             Thread.sleep(1000);
         }
-        assertFalse(templates.isEmpty());
-        PodTemplate template = templates.get(0);
+
+        Map<String, String> labels = getLabels(cloud, this);
+        LOGGER.log(Level.INFO, "Waiting for pods to be created with labels: {0}", labels);
+        PodList pods = cloud.connect().pods().withLabels(labels).list();
+        while (pods.getItems().isEmpty()) {
+            LOGGER.log(Level.INFO, "Waiting for pods to be created with labels: {0}", labels);
+            pods = cloud.connect().pods().withLabels(labels).list();
+            Thread.sleep(1000);
+        }
+
         assertEquals(Integer.MAX_VALUE, template.getInstanceCap());
+        assertThat(template.getLabelsMap(), hasEntry("jenkins/mypod", "true"));
+
+        assertEquals(1, pods.getItems().size());
+        Pod pod = pods.getItems().get(0);
+        LOGGER.log(Level.INFO, "One pod found: {0}", pod);
+        assertThat(pod.getMetadata().getLabels(), hasEntry("jenkins", "slave"));
+        assertThat(pod.getMetadata().getLabels(), hasEntry("jenkins/mypod", "true"));
+
         r.assertBuildStatusSuccess(r.waitForCompletion(b));
         r.assertLogContains("script file contents: ", b);
         assertFalse("There are pods leftover after test execution, see previous logs",
-                deletePods(cloud.connect(), getLabels(this), true));
+                deletePods(cloud.connect(), getLabels(cloud, this), true));
     }
 
-    private boolean hasPodTemplateWithLabel(String label, List<PodTemplate> templates) {
-        return templates != null
-                && templates.stream()
-                .map(PodTemplate::getLabel)
-                .anyMatch(label::equals);
+    @Test
+    public void runIn2Pods() throws Exception {
+        deletePods(cloud.connect(), getLabels(cloud, this), false);
+
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition(loadPipelineScript(name.getMethodName() + ".groovy"), true));
+        WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+        assertNotNull(b);
+        SemaphoreStep.waitForStart("podTemplate1/1", b);
+        PodTemplate template1 = podTemplateWithLabel("mypod", cloud.getAllTemplates());
+        SemaphoreStep.success("podTemplate1/1", null);
+        assertEquals(Integer.MAX_VALUE, template1.getInstanceCap());
+        assertThat(template1.getLabelsMap(), hasEntry("jenkins/mypod", "true"));
+        SemaphoreStep.waitForStart("pod1/1", b);
+        Map<String, String> labels1 = getLabels(cloud, this);
+        labels1.put("jenkins/mypod", "true");
+        PodList pods = cloud.connect().pods().withLabels(labels1).list();
+        assertTrue(!pods.getItems().isEmpty());
+        SemaphoreStep.success("pod1/1", null);
+
+        SemaphoreStep.waitForStart("podTemplate2/1", b);
+        PodTemplate template2 = podTemplateWithLabel("mypod2", cloud.getAllTemplates());
+        SemaphoreStep.success("podTemplate2/1", null);
+        assertEquals(Integer.MAX_VALUE, template2.getInstanceCap());
+        assertThat(template2.getLabelsMap(), hasEntry("jenkins/mypod2", "true"));
+        assertNull("mypod2 should not inherit from anything", template2.getInheritFrom());
+        SemaphoreStep.waitForStart("pod2/1", b);
+        Map<String, String> labels2 = getLabels(cloud, this);
+        labels1.put("jenkins/mypod2", "true");
+        PodList pods2 = cloud.connect().pods().withLabels(labels2).list();
+        assertTrue(!pods2.getItems().isEmpty());
+        SemaphoreStep.success("pod2/1", null);
+        r.assertBuildStatusSuccess(r.waitForCompletion(b));
+        r.assertLogContains("script file contents: ", b);
+        assertFalse("There are pods leftover after test execution, see previous logs",
+                deletePods(cloud.connect(), getLabels(cloud, this), true));
+    }
+
+    private PodTemplate podTemplateWithLabel(String label, List<PodTemplate> templates) {
+        return templates != null ? templates.stream().filter(t -> label.equals(t.getLabel())).findFirst().orElse(null)
+                : null;
     }
 
     @Test
     public void runInPodFromYaml() throws Exception {
-        deletePods(cloud.connect(), getLabels(this), false);
+        deletePods(cloud.connect(), getLabels(cloud, this), false);
 
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition(loadPipelineScript("runInPodFromYaml.groovy"), true));
@@ -104,7 +167,7 @@ public class KubernetesPipelineTest extends AbstractKubernetesPipelineTest {
         r.assertBuildStatusSuccess(r.waitForCompletion(b));
         r.assertLogContains("script file contents: ", b);
         assertFalse("There are pods leftover after test execution, see previous logs",
-                deletePods(cloud.connect(), getLabels(this), true));
+                deletePods(cloud.connect(), getLabels(cloud, this), true));
     }
 
     public void runInPodWithDifferentShell() throws Exception {
@@ -129,6 +192,19 @@ public class KubernetesPipelineTest extends AbstractKubernetesPipelineTest {
         r.assertLogContains("My Kubernetes Pipeline", b);
         r.assertLogContains("my-mount", b);
         r.assertLogContains("Apache Maven 3.3.9", b);
+    }
+
+    @Test
+    public void runInPodNested() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition(loadPipelineScript("runInPodNested.groovy"), true));
+        WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+        assertNotNull(b);
+        r.assertBuildStatusSuccess(r.waitForCompletion(b));
+        r.assertLogContains("[maven] maven:3.3.9-jdk-8-alpine", b);
+        r.assertLogContains("[golang] golang:1.6.3-alpine", b);
+        r.assertLogContains("Apache Maven 3.3.9", b);
+        r.assertLogContains("go version go1.6.3", b);
     }
 
     @Test
@@ -265,12 +341,12 @@ public class KubernetesPipelineTest extends AbstractKubernetesPipelineTest {
         r.assertLogContains("initpwd is -" + workspace + "-", b);
         r.assertLogContains("dirpwd is -" + workspace + "/hz-", b);
         r.assertLogContains("postpwd is -" + workspace + "-", b);
-
     }
 
     @Test
-    public void runWithOverriddenNamespace() throws Exception {
+    public void runWithCloudOverriddenNamespace() throws Exception {
         String overriddenNamespace = testingNamespace + "-overridden-namespace";
+        cloud.setNamespace(overriddenNamespace);
         KubernetesClient client = cloud.connect();
         // Run in our own testing namespace
         if (client.namespaces().withName(overriddenNamespace).get() == null) {
@@ -279,11 +355,10 @@ public class KubernetesPipelineTest extends AbstractKubernetesPipelineTest {
         }
 
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "overriddenNamespace");
-        p.setDefinition(new CpsFlowDefinition(loadPipelineScript("runWithOverriddenNamespace.groovy"), true));
+        p.setDefinition(new CpsFlowDefinition(loadPipelineScript(name.getMethodName()+".groovy"), true));
 
         WorkflowRun b = p.scheduleBuild2(0).waitForStart();
         assertNotNull(b);
-        NamespaceAction.push(b, overriddenNamespace);
 
         r.assertBuildStatusSuccess(r.waitForCompletion(b));
         r.assertLogContains(overriddenNamespace, b);
@@ -296,6 +371,7 @@ public class KubernetesPipelineTest extends AbstractKubernetesPipelineTest {
     public void runWithStepOverriddenNamespace() throws Exception {
         String overriddenNamespace = testingNamespace + "-overridden-namespace";
         String stepNamespace = testingNamespace + "-overridden-namespace2";
+        cloud.setNamespace(overriddenNamespace);
         KubernetesClient client = cloud.connect();
         // Run in our own testing namespace
         if (client.namespaces().withName(stepNamespace).get() == null) {
@@ -304,12 +380,11 @@ public class KubernetesPipelineTest extends AbstractKubernetesPipelineTest {
         }
 
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "stepOverriddenNamespace");
-        p.setDefinition(new CpsFlowDefinition(loadPipelineScript("runWithStepOverriddenNamespace.groovy")
+        p.setDefinition(new CpsFlowDefinition(loadPipelineScript(name.getMethodName()+".groovy")
                 .replace("OVERRIDDEN_NAMESPACE", stepNamespace), true));
 
         WorkflowRun b = p.scheduleBuild2(0).waitForStart();
         assertNotNull(b);
-        NamespaceAction.push(b, overriddenNamespace);
 
         r.assertBuildStatusSuccess(r.waitForCompletion(b));
         r.assertLogContains(stepNamespace, b);
@@ -343,4 +418,13 @@ public class KubernetesPipelineTest extends AbstractKubernetesPipelineTest {
         r.assertLogNotContains("Hello from container!", b);
     }
 
+    @Test
+    public void runInPodWithRetention() throws Exception {
+        deletePods(cloud.connect(), getLabels(cloud, this), false);
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "pod with retention");
+        p.setDefinition(new CpsFlowDefinition(loadPipelineScript("runInPodWithRetention.groovy"), true));
+        WorkflowRun b = p.scheduleBuild2(0).waitForStart();
+        r.assertBuildStatusSuccess(r.waitForCompletion(b));
+        assertTrue(deletePods(cloud.connect(), getLabels(this), true));
+    }
 }

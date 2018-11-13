@@ -12,6 +12,7 @@ import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 
 import java.util.Collections;
@@ -26,10 +27,12 @@ public class KubernetesDeclarativeAgent extends DeclarativeAgent<KubernetesDecla
     private static final Logger LOGGER = Logger.getLogger(KubernetesDeclarativeAgent.class.getName());
 
     private String label;
+    private String customWorkspace;
 
     private String cloud;
     private String inheritFrom;
 
+    private int idleMinutes;
     private int instanceCap;
     private String serviceAccount;
     private String nodeSelector;
@@ -40,6 +43,7 @@ public class KubernetesDeclarativeAgent extends DeclarativeAgent<KubernetesDecla
     private List<ContainerTemplate> containerTemplates;
     private String defaultContainer;
     private String yaml;
+    private String yamlFile;
 
     @DataBoundConstructor
     public KubernetesDeclarativeAgent() {
@@ -60,6 +64,16 @@ public class KubernetesDeclarativeAgent extends DeclarativeAgent<KubernetesDecla
         this.label = label;
     }
 
+    @CheckForNull
+    public String getCustomWorkspace() {
+        return customWorkspace;
+    }
+
+    @DataBoundSetter
+    public void setCustomWorkspace(String customWorkspace) {
+        this.customWorkspace = customWorkspace;
+    }
+
     public String getCloud() {
         return cloud;
     }
@@ -67,6 +81,15 @@ public class KubernetesDeclarativeAgent extends DeclarativeAgent<KubernetesDecla
     @DataBoundSetter
     public void setCloud(String cloud) {
         this.cloud = cloud;
+    }
+
+    public int getIdleMinutes() {
+        return idleMinutes;
+    }
+
+    @DataBoundSetter
+    public void setIdleMinutes(int idleMinutes) {
+        this.idleMinutes = idleMinutes;
     }
 
     public String getInheritFrom() {
@@ -162,16 +185,29 @@ public class KubernetesDeclarativeAgent extends DeclarativeAgent<KubernetesDecla
         this.activeDeadlineSeconds = activeDeadlineSeconds;
     }
 
+    public String getYamlFile() {
+        return yamlFile;
+    }
+
+    @DataBoundSetter
+    public void setYamlFile(String yamlFile) {
+        this.yamlFile = yamlFile;
+    }
+
     public Map<String, Object> getAsArgs() {
         Map<String, Object> argMap = new TreeMap<>();
 
         argMap.put("label", label);
         argMap.put("name", label);
 
+        if (!StringUtils.isEmpty(customWorkspace)) {
+            argMap.put("customWorkspace", customWorkspace);
+        }
+
         List<ContainerTemplate> containerTemplates = getContainerTemplates();
         if (containerTemplate != null) {
             LOGGER.log(Level.WARNING,
-                    "containerTemplate option in declarative pipeline is deprecated, use containerTemplates");
+                    "containerTemplate option in declarative pipeline is deprecated, use yaml syntax to define containers");
             if (containerTemplates.isEmpty()) {
                 containerTemplates = Collections.singletonList(containerTemplate);
             } else {
@@ -186,6 +222,9 @@ public class KubernetesDeclarativeAgent extends DeclarativeAgent<KubernetesDecla
         }
         if (!StringUtils.isEmpty(cloud)) {
             argMap.put("cloud", cloud);
+        }
+        if (idleMinutes != 0) {
+            argMap.put("idleMinutes", idleMinutes);
         }
         if (!StringUtils.isEmpty(inheritFrom)) {
             argMap.put("inheritFrom", inheritFrom);
